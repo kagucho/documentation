@@ -79,6 +79,7 @@ Now you need to install [Yarn](https://yarnpkg.com/en/) plus some more software.
 
 #### Explanation of the dependencies
 
+- exiv2 - Mastodon uses exiv2 for preserving particular metadata of media
 - imagemagick - Mastodon uses imagemagick for image related operations
 - ffmpeg - Mastodon uses ffmpeg for conversion of GIFs to MP4s
 - libprotobuf-dev and protobuf-compiler - Mastodon uses these for language detection
@@ -90,7 +91,7 @@ Now you need to install [Yarn](https://yarnpkg.com/en/) plus some more software.
 - Other -dev packages, g++ - these are needed for the compilation of Ruby using ruby-build.
 
 ```sh
-apt -y install imagemagick ffmpeg libpq-dev libxml2-dev libxslt1-dev file git-core g++ libprotobuf-dev protobuf-compiler pkg-config nodejs gcc autoconf bison build-essential libssl-dev libyaml-dev libreadline6-dev zlib1g-dev libncurses5-dev libffi-dev libgdbm3 libgdbm-dev nginx redis-server redis-tools postgresql postgresql-contrib letsencrypt yarn libidn11-dev libicu-dev
+apt -y install exiv2 imagemagick ffmpeg libpq-dev libxml2-dev libxslt1-dev file git-core g++ libprotobuf-dev protobuf-compiler pkg-config nodejs gcc autoconf bison build-essential libssl-dev libyaml-dev libreadline6-dev zlib1g-dev libncurses5-dev libffi-dev libgdbm3 libgdbm-dev nginx redis-server redis-tools postgresql postgresql-contrib letsencrypt yarn libidn11-dev libicu-dev
 ```
 
 ### Dependencies That Need To Be Added As A Non-Root User

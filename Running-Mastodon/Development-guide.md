@@ -1,9 +1,9 @@
 Development guide
 =================
 
-**Don't use Docker to do development**. It's a quick way to get Mastodon running in production, it's **really really inconvenient for development**. Normally in Rails development environment you get hot reloading of backend code and on-the-fly compilation of assets like JS and CSS, but you lose those benefits by compiling a Docker image. If you want to contribute to Mastodon, it is worth it to simply set up a proper development environment.
+## Bare-metal
 
-## Linux
+### Linux
 
 In fact, all you need is described in the [production guide](Production-guide.md), **with the following exceptions**. You **don't** need:
 
@@ -61,7 +61,7 @@ You can check code quality with:
 
     rubocop
 
-## OpenBSD
+### OpenBSD
 
 Follow the Linux setup as described above, but with these considerations:
 
@@ -98,11 +98,11 @@ Modify `mfmk.rb`:
    def append_ldflags(flags, *opts)
 ```
 
-## Mac
+### Mac
 
 These are self-contained instructions for setting up a development environment on a macOS system. It is assumed that you’ve cloned your fork of Mastodon to a local working directory and that you are in Terminal and in that directory.
 
-### Prerequisites
+#### Prerequisites
 
 - Get [Xcode](https://developer.apple.com/xcode/) Command Line Tools:
 
@@ -148,7 +148,7 @@ These are self-contained instructions for setting up a development environment o
 	\q
 	```
 
-### Installation
+#### Installation
 
 ```
 bundle install --with development
@@ -158,7 +158,7 @@ bundle exec rails db:setup
 bin/rails assets:precompile
 ```
 
-### Running
+#### Running
 
 In separate Terminal windows/tabs:
 
@@ -170,13 +170,145 @@ Go to http://localhost:3000 to see your development instance.
 
 Admin account is `admin@localhost:3000`. Password is `mastodonadmin`.
 
+## Docker
+
+You need Docker and Docker Compose.
+
+- Build
+
+```
+docker-compose -f docker-compose.development.yml build
+```
+
+- Install Ruby project dependencies
+
+```
+docker-compose -f docker-compose.development.yml run --rm web bundle install
+```
+
+- Install JavaScript dependencies
+
+```
+docker-compose -f docker-compose.development.yml run --rm web yarn install --pure-lockfile
+```
+
+- Setup the database
+
+```
+docker-compose -f docker-compose.development.yml run --rm web ./bin/rails db:setup
+```
+
+- Run
+
+```
+docker-compose -f docker_compose.development.yml up
+```
+
+Go to `http://127.0.0.1` to see your development instance.
+
+Admin account is `admin@localhost:3000`. Password is `mastodonadmin`.
+
+### Federation
+
+You can test federation by setting up multiple instances and sharing a network.
+
+In this section, a procedure to set up these instances will be described:
+
+|URI for Web browser|Domain for federation|
+|-|-|
+|`https://127.0.0.1/`|`mastodon1.localdomain`|
+|`https://127.0.0.2/`|`mastodon2.localdomain`|
+
+Note that HTTPS must be enabled. You will be asked by your browser if add an
+exception of invalid certificates.
+
+It is advisable to name your repository directory like `mastodon1`. The
+directory will be devoted for `mastodon1.localdomain`.
+
+- Create a new network
+
+This network will be used as fake fediverse.
+
+```
+docker network create mastodon
+```
+
+- Create network configuration file
+
+Save the following content as `docker-compose.development.network.yml`.
+
+```YAML
+version: '3'
+networks:
+  federation:
+    external:
+      name: mastodon
+```
+
+Make sure the network name (`mastodon` in this case) is the same which you
+specified in the previous step.
+
+- Create `.env` file
+
+We will need several environment variables. `.env` automatically sets up those
+variables so you don't have to type them again and again.
+
+Save the following lines as `.env`.
+
+```
+COMPOSE_FILE=docker-compose.development.yml:docker-compose.development.network.yml
+FRONTEND_DOMAIN=127.0.0.1
+LOCAL_DOMAIN=mastodon1.localdomain
+LOCAL_FEDERATION=mastodon
+LOCAL_HTTPS=true
+```
+
+Make sure `COMPOSE_FILE` is pointing to `docker-compose.development.yml` and
+the file you previously created (`docker-compose.development.network.yml`)
+
+`FRONTEND_DOMAIN` is the IP address you access with a Web browser.
+
+`LOCAL_DOMAIN` is the domain name used for federation. It must be suffixed
+`.localdomain`, or a TLS authentication among instances will fail.
+
+- Copy the instance
+
+Now, copy the repository directory. You may name the destination directory
+`mastodon2`.
+
+- Edit `.env` of the new instance
+
+Open `mastodon2/.env` and replace `127.0.0.1` with `127.0.0.2` and
+`mastodon1.localdomain` with `mastodon2.localdomain`.
+
+- Run
+
+Run the following command in each directory (`mastodon1` and `mastodon2`):
+
+```
+docker-compose up
+```
+
+Go to `https://127.0.0.1` and `https://127.0.0.2` to see your development
+instances. Again, `HTTPS` must be used.
+
+Permanent links used in emails, toot links, media, and many others will not work
+with this configuration because they uses the federation domains. If you want to
+make them valid, add the following lines to your `/etc/hosts` (or a counterpart
+if you are not on a Unix variant.)
+
+```
+127.0.0.1 mastodon1.localdomain
+127.0.0.2 mastodon2.localdomain
+```
+
 ## Development tips
 
-You can use a localhost->world tunneling service like [ngrok](https://ngrok.com) if you want to test federation, **however** that should not be your primary mode of operation. If you want to have a permanently federating server, set up a proper instance on a VPS with a domain name, and simply keep it up to date with your own fork of the project while doing development on localhost.
+You can use a localhost->world tunneling service like [ngrok](https://ngrok.com) if you want to test federation with remote instances, **however** that should not be your primary mode of operation. If you want to have a permanently federating server, set up a proper instance on a VPS with a domain name, and simply keep it up to date with your own fork of the project while doing development on localhost.
 
 Ngrok and similar services give you a random domain on each start up. This is good enough to test how the code you're working on handles real-world situations. But as soon as your domain changes, for everybody else concerned you're a different instance than before.
 
-Generally, federation bits are tricky to work on for exactly this reason - it's hard to test. And when you are testing with a disposable instance you are polluting the databases of the real servers you're testing against, usually not a big deal but can be annoying. The way I have handled this so far was thus: I have used ngrok for one session, and recorded the exchanges from its web interface to create fixtures and test suites. From then on I've been working with those rather than live servers.
+When you are testing with a disposable instance you are polluting the databases of the real servers you're testing against, usually not a big deal but can be annoying. Instead of disposing multiple instances, record the exchanges from its web interface to create fixtures and test suites and work with them. Local federation with Docker is also a good alternative.
 
 I advise to study the existing code and the RFCs before trying to implement any federation-related changes. It's not *that* difficult, but I think "here be dragons" applies because it's easy to break.
 
